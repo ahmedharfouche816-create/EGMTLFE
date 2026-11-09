@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>صندوق الحاسبات</title>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f7f7f5;--card:#fff;--tx:#1b1b1b;--mut:#6b6b6b;--bd:#e4e4df;--ac:#0f766e;--acx:#fff;--soft:#e6f4f1;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#141516;--card:#1d1f21;--tx:#ececec;--mut:#9a9a9a;--bd:#2d3033;--ac:#2dd4bf;--acx:#06201c;--soft:#12302c;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#141516;--card:#1d1f21;--tx:#ececec;--mut:#9a9a9a;--bd:#2d3033;--ac:#2dd4bf;--acx:#06201c;--soft:#12302c;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:"Tajawal",system-ui,sans-serif;line-height:1.6}
+.wrap{max-width:900px;margin:0 auto;padding:20px 16px 48px}
+header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+h1{font-size:1.6rem;margin:0;flex:1}
+input,textarea,select,button{font:inherit;color:inherit}
+.search{width:100%;padding:12px 14px;border:1px solid var(--bd);border-radius:12px;background:var(--card);margin-bottom:8px}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:4px 0 12px}
+.chip{white-space:nowrap;border:1px solid var(--bd);background:var(--card);border-radius:999px;padding:6px 14px;cursor:pointer}
+.chip.on{background:var(--ac);color:var(--acx);border-color:var(--ac)}
+h2{font-size:1.15rem;margin:22px 0 10px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+.card{text-align:right;background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px;cursor:pointer}
+.card:hover{border-color:var(--ac)}
+.card b{display:block;margin-bottom:2px}
+.card span{color:var(--mut);font-size:.88rem}
+.panel{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:18px}
+.back{border:0;background:var(--soft);color:var(--ac);padding:6px 14px;border-radius:999px;cursor:pointer;margin-bottom:14px}
+.panel h3{margin:0 0 4px;font-size:1.3rem}
+.panel p{margin:0 0 14px;color:var(--mut)}
+label{display:block;font-weight:500;margin:10px 0 4px}
+.panel input,.panel textarea,.panel select{width:100%;padding:10px 12px;border:1px solid var(--bd);border-radius:10px;background:var(--bg)}
+textarea{min-height:120px;resize:vertical}
+.go{margin-top:12px;background:var(--ac);color:var(--acx);border:0;border-radius:10px;padding:10px 20px;cursor:pointer;font-weight:700}
+.out{margin-top:16px;background:var(--bg);border:1px dashed var(--bd);border-radius:10px;padding:12px;white-space:pre-wrap;word-break:break-word;min-height:48px;direction:auto;text-align:start}
+.out.err{color:#dc2626}
+.copy{margin-top:8px;border:1px solid var(--bd);background:transparent;border-radius:8px;padding:4px 12px;cursor:pointer}
+.cdisp{background:var(--bg);border:1px solid var(--bd);border-radius:12px;padding:16px;direction:ltr;text-align:right;font-size:1.8rem;min-height:68px;overflow-x:auto;word-break:break-all}
+.ckeys{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px;direction:ltr}
+.ckeys button{padding:16px 0;font-size:1.25rem;border:1px solid var(--bd);border-radius:12px;background:var(--bg);cursor:pointer}
+.ckeys .op{background:var(--soft);color:var(--ac)}
+.ckeys .eq{grid-column:span 4;background:var(--ac);color:var(--acx);border:0;font-weight:700}
+.dsel{display:flex;gap:8px}
+.dsel select{flex:1;min-width:0}
+.empty{color:var(--mut);padding:20px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><h1>🧮 صندوق الحاسبات</h1></header>
+  <div id="view"></div>
+</div>
+
+<script>
+/* ======================================================
+   لإضافة حاسبة جديدة: أضف كائناً داخل مصفوفة tools في القسم المناسب.
+   id: معرّف بالإنجليزية (حروف وأرقام وشرطة)
+   inputs: الحقول  → type: text | number | textarea | select | date
+   run(v): تستقبل قيم الحقول (v.id) وتُرجع النص الناتج
+   action: إن وُجد، تعمل الأداة عند الضغط على الزر بدل التحديث الفوري
+   لإضافة قسم جديد: أضف كائناً جديداً في SECTIONS.
+   ====================================================== */
+
+const CAT={len:'طول',mass:'وزن',area:'مساحة',vol:'حجم',speed:'سرعة',data:'بيانات',temp:'حرارة',time:'وقت',pres:'ضغط',energy:'طاقة',torque:'عزم'};
+const UN=[['len','m','متر',1],['len','km','كيلومتر',1000],['len','cm','سنتيمتر',.01],['len','mm','مليمتر',.001],['len','mi','ميل',1609.344],['len','ft','قدم',.3048],['len','in','بوصة',.0254],['len','yd','ياردة',.9144],
+['mass','kg','كيلوغرام',1],['mass','g','غرام',.001],['mass','lb','رطل',.45359237],['mass','oz','أونصة',.028349523],['mass','ton','طن',1000],
+['area','m2','متر مربع',1],['area','km2','كيلومتر مربع',1e6],['area','ha','هكتار',1e4],['area','ft2','قدم مربع',.09290304],['area','acre','فدان أمريكي',4046.8564],
+['vol','l','لتر',1],['vol','ml','مليلتر',.001],['vol','gal','غالون أمريكي',3.785411784],['vol','cup','كوب',.2365882365],
+['speed','ms','متر/ثانية',1],['speed','kmh','كم/ساعة',1/3.6],['speed','mph','ميل/ساعة',.44704],
+['data','B','بايت',1],['data','KB','كيلوبايت',1024],['data','MB','ميغابايت',1048576],['data','GB','غيغابايت',1073741824],['data','TB','تيرابايت',1099511627776],
+['len','px','بكسل (96dpi)',.0254/96],['vol','tbsp','ملعقة كبيرة',.01478676478],['vol','tsp','ملعقة صغيرة',.00492892159],['vol','floz','أونصة سائلة',.0295735296],['time','s','ثانية',1],['time','min','دقيقة',60],['time','h','ساعة',3600],['time','d','يوم',86400],['time','wk','أسبوع',604800],['time','yr','سنة',31557600],['pres','pa','باسكال',1],['pres','kpa','كيلوباسكال',1000],['pres','bar','بار',1e5],['pres','psi','PSI',6894.757],['pres','atm','ضغط جوي',101325],['energy','j','جول',1],['energy','kj','كيلوجول',1000],['energy','cal','سعرة صغيرة',4.184],['energy','kcal','سعرة كبيرة (كيلو)',4184],['energy','kwh','كيلوواط ساعة',3.6e6],['energy','ftlb','قدم-باوند',1.3558179],['torque','nm','نيوتن متر',1],['torque','ftlbt','قدم-باوند (عزم)',1.3558179],['temp','c','مئوية'],['temp','f','فهرنهايت'],['temp','k','كلفن']];
+const fmt=(x,d=2)=>(+x.toFixed(d)).toLocaleString('en',{maximumFractionDigits:d});
+const ok=(...a)=>a.every(x=>x!==''&&x!=null&&!isNaN(+x));
+const N=(id,label,value)=>value===undefined?{id,label,type:'number'}:{id,label,type:'number',value};
+const SEL=(id,label,options,value)=>({id,label,type:'select',options,value});
+const hm=sec=>{sec=Math.round(sec);const h=Math.floor(sec/3600),m=Math.floor(sec%3600/60);return (h?h+' ساعة و ':'')+m+' دقيقة'+(sec<120?' ('+sec+' ثانية)':'');};
+const SECTIONS = [
+{ id:'fin', name:'الحاسبات المالية', tools:[
+  { id:'discount', name:'حاسبة الخصم', desc:'السعر بعد الخصم',
+    inputs:[{id:'p',label:'السعر',type:'number'},{id:'d',label:'نسبة الخصم %',type:'number'}],
+    run:v=>{const p=+v.p,d=+v.d;if(v.p===''||v.d==='')return '';
+      return `قيمة الخصم: ${(p*d/100).toFixed(2)}\nالسعر النهائي: ${(p-p*d/100).toFixed(2)}`;} },
+  { id:'loan', name:'حاسبة القرض', desc:'القسط الشهري وإجمالي الفوائد',
+    inputs:[{id:'p',label:'مبلغ القرض',type:'number'},{id:'r',label:'الفائدة السنوية %',type:'number'},{id:'y',label:'المدة (سنوات)',type:'number'}],
+    run:v=>{const p=+v.p,n=+v.y*12,r=+v.r/1200;if(!p||!n)return '';const m=r?p*r/(1-Math.pow(1+r,-n)):p/n;
+      return `القسط الشهري: ${m.toFixed(2)}\nالإجمالي: ${(m*n).toFixed(2)}\nإجمالي الفوائد: ${(m*n-p).toFixed(2)}`;} },
+  { id:'bill-split', name:'تقسيم الفاتورة', desc:'نصيب كل شخص مع البقشيش',
+    inputs:[{id:'t',label:'إجمالي الفاتورة',type:'number'},{id:'n',label:'عدد الأشخاص',type:'number',value:2},{id:'p',label:'البقشيش %',type:'number',value:0}],
+    run:v=>{const t=+v.t*(1+(+v.p||0)/100),n=+v.n;if(!t||!n)return '';return `الإجمالي: ${t.toFixed(2)}\nنصيب كل شخص: ${(t/n).toFixed(2)}`;} },
+  { id:'vat', name:'حاسبة الضريبة (القيمة المضافة)', desc:'إضافة الضريبة أو استخراجها من مبلغ شامل',
+    inputs:[{id:'a',label:'المبلغ',type:'number'},{id:'r',label:'نسبة الضريبة %',type:'number',value:15},{id:'m',label:'العملية',type:'select',options:[['add','إضافة الضريبة للمبلغ'],['ext','استخراج الضريبة من مبلغ شامل']]}],
+    run:v=>{if(v.a==='')return '';const a=+v.a,r=+v.r/100;if(v.m==='add')return `الضريبة: ${fmt(a*r)}\nالإجمالي: ${fmt(a*(1+r))}`;
+      const b=a/(1+r);return `المبلغ قبل الضريبة: ${fmt(b)}\nالضريبة: ${fmt(a-b)}`;} },
+  { id:'zakat', name:'حاسبة زكاة المال', desc:'تحقق من بلوغ النصاب واحسب 2.5%',
+    inputs:[{id:'w',label:'إجمالي المال المدخر',type:'number'},{id:'g',label:'سعر غرام الذهب عيار 24 (بنفس العملة)',type:'number'}],
+    run:v=>{if(v.w===''||!+v.g)return '';const n=85*+v.g,w=+v.w;
+      return `النصاب (85 غرام ذهب): ${fmt(n)}\n`+(w>=n?`بلغ المال النصاب\nالزكاة الواجبة: ${fmt(w*.025)}\n(بشرط مرور سنة هجرية كاملة على المال)`:'لم يبلغ المال النصاب، فلا زكاة فيه');} },
+  { id:'margin', name:'حاسبة هامش الربح', desc:'الربح ونسبة الهامش ونسبة الزيادة على التكلفة',
+    inputs:[{id:'c',label:'التكلفة',type:'number'},{id:'p',label:'سعر البيع',type:'number'}],
+    run:v=>{const c=+v.c,p=+v.p;if(!c||!p)return '';return `الربح: ${fmt(p-c)}\nهامش الربح: ${fmt((p-c)/p*100)}%\nنسبة الزيادة على التكلفة: ${fmt((p-c)/c*100)}%`;} },
+  { id:'compound', name:'الفائدة المركبة والادخار', desc:'نمو مبلغ مع إيداع شهري اختياري',
+    inputs:[{id:'p',label:'المبلغ الأولي',type:'number',value:0},{id:'m',label:'إيداع شهري',type:'number',value:0},{id:'r',label:'العائد السنوي %',type:'number'},{id:'y',label:'المدة (سنوات)',type:'number'}],
+    run:v=>{const n=Math.round(+v.y*12),r=+v.r/1200;if(!n||v.r==='')return '';let b=+v.p||0;for(let i=0;i<n;i++)b=b*(1+r)+(+v.m||0);
+      const d=(+v.p||0)+(+v.m||0)*n;return `الرصيد النهائي: ${fmt(b)}\nإجمالي ما أودعته: ${fmt(d)}\nالأرباح: ${fmt(b-d)}`;} },
+  { id:'savings-goal', name:'هدف الادخار', desc:'كم شهراً تحتاج للوصول إلى مبلغ معين',
+    inputs:[{id:'g',label:'المبلغ المستهدف',type:'number'},{id:'c',label:'المدخر حالياً',type:'number',value:0},{id:'m',label:'الادخار الشهري',type:'number'}],
+    run:v=>{const g=+v.g,c=+v.c||0,m=+v.m;if(!g||!m)return '';if(c>=g)return 'وصلت للهدف بالفعل';const n=Math.ceil((g-c)/m);return `${n} شهر (${fmt(n/12,1)} سنة)`;} },
+  { id:'flat-installment', name:'التقسيط بفائدة ثابتة', desc:'القسط الشهري عند الشراء بالتقسيط',
+    inputs:[{id:'p',label:'سعر السلعة',type:'number'},{id:'d',label:'الدفعة الأولى',type:'number',value:0},{id:'m',label:'عدد الأشهر',type:'number'},{id:'r',label:'نسبة الربح السنوية %',type:'number'}],
+    run:v=>{const l=(+v.p)-(+v.d||0),m=+v.m;if(!l||!m||v.r==='')return '';const i=l*(+v.r)/100*m/12;return `القسط الشهري: ${fmt((l+i)/m)}\nإجمالي الربح: ${fmt(i)}\nإجمالي ما ستدفعه: ${fmt(l+i+(+v.d||0))}`;} },
+  { id:'roi', name:'العائد على الاستثمار', desc:'نسبة الربح والعائد السنوي',
+    inputs:[{id:'c',label:'مبلغ الاستثمار',type:'number'},{id:'f',label:'القيمة النهائية',type:'number'},{id:'y',label:'المدة بالسنوات (اختياري)',type:'number'}],
+    run:v=>{const c=+v.c,f=+v.f;if(!c||v.f==='')return '';return `الربح: ${fmt(f-c)}\nالعائد: ${fmt((f-c)/c*100)}%`+(+v.y>0&&f>0?`\nالعائد السنوي المركب: ${fmt((Math.pow(f/c,1/+v.y)-1)*100)}%`:'');} },
+  { id:'break-even', name:'نقطة التعادل', desc:'عدد الوحدات اللازمة لتغطية التكاليف',
+    inputs:[{id:'f',label:'التكاليف الثابتة',type:'number'},{id:'p',label:'سعر بيع الوحدة',type:'number'},{id:'c',label:'تكلفة الوحدة المتغيرة',type:'number'}],
+    run:v=>{const f=+v.f,p=+v.p,c=+v.c;if(!f||!p)return '';if(p<=c)throw new Error('سعر البيع يجب أن يزيد عن التكلفة المتغيرة');const u=Math.ceil(f/(p-c));return `${u.toLocaleString('en')} وحدة\nالمبيعات عند التعادل: ${fmt(u*p)}`;} },
+  { id:'gold-value', name:'قيمة الذهب', desc:'قيمة ذهب حسب الوزن والعيار',
+    inputs:[{id:'w',label:'الوزن (غرام)',type:'number'},{id:'k',label:'العيار',type:'select',options:[['24','24'],['22','22'],['21','21'],['18','18']]},{id:'p',label:'سعر غرام عيار 24',type:'number'}],
+    run:v=>{if(!+v.w||!+v.p)return '';return fmt(+v.w*(+v.k/24)*(+v.p));} },
+  { id:'end-of-service', name:'مكافأة نهاية الخدمة', desc:'تقدير حسب نظام العمل السعودي (نصف شهر لأول 5 سنوات ثم شهر)',
+    inputs:[{id:'y',label:'سنوات الخدمة',type:'number'},{id:'s',label:'آخر أجر شهري',type:'number'}],
+    run:v=>{const y=+v.y,s=+v.s;if(!y||!s)return '';return fmt(y<=5?s/2*y:s/2*5+s*(y-5))+'\n(تقدير عام؛ تختلف المكافأة حسب سبب انتهاء العقد، فراجع نظام العمل)';} },
+  {id:'salary-convert',name:'تحويل الراتب (ساعة/شهر/سنة)',desc:'الراتب بالساعة والأسبوع والشهر والسنة',inputs:[SEL('f','المبلغ الذي تعرفه',[['h','بالساعة'],['m','شهري'],['y','سنوي']]),N('x','المبلغ'),N('w','ساعات العمل أسبوعياً',40)],
+    run:v=>{if(!ok(v.x,v.w)||!+v.w)return '';const y=v.f==='h'?v.x*v.w*52:v.f==='m'?v.x*12:+v.x;return `بالساعة: ${fmt(y/(v.w*52))}\nأسبوعي: ${fmt(y/52)}\nشهري: ${fmt(y/12)}\nسنوي: ${fmt(y)}`;}},
+  {id:'overtime',name:'حاسبة العمل الإضافي',desc:'أجر الساعات الإضافية',inputs:[N('r','أجر الساعة'),N('h','ساعات العمل العادية'),N('o','ساعات الإضافي'),N('m','معامل الإضافي',1.5)],
+    run:v=>{if(!ok(v.r,v.o))return '';const a=v.r*(+v.h||0),b=v.r*v.o*(+v.m||1.5);return `الأجر العادي: ${fmt(a)}\nأجر الإضافي: ${fmt(b)}\nالإجمالي: ${fmt(a+b)}`;}},
+  {id:'salary-raise',name:'زيادة الراتب',desc:'الراتب الجديد بعد نسبة زيادة',inputs:[N('s','الراتب الحالي'),N('p','نسبة الزيادة %')],run:v=>ok(v.s,v.p)?`الراتب الجديد: ${fmt(v.s*(1+v.p/100))}\nالزيادة: ${fmt(v.s*v.p/100)}\nالزيادة السنوية: ${fmt(v.s*v.p/100*12)}`:''},
+  {id:'mortgage',name:'حاسبة الرهن العقاري',desc:'القسط الشهري لتمويل عقار',inputs:[N('p','سعر العقار'),N('d','الدفعة الأولى %',20),N('r','الفائدة السنوية %'),N('y','المدة (سنوات)')],
+    run:v=>{if(!ok(v.p,v.r,v.y))return '';const L=v.p*(1-(+v.d||0)/100),n=v.y*12,r=v.r/1200,m=r?L*r/(1-Math.pow(1+r,-n)):L/n;return `مبلغ التمويل: ${fmt(L)}\nالقسط الشهري: ${fmt(m)}\nإجمالي المدفوع: ${fmt(m*n)}\nإجمالي الفوائد: ${fmt(m*n-L)}`;}},
+  {id:'simple-interest',name:'الفائدة البسيطة',desc:'الفائدة = المبلغ × النسبة × المدة',inputs:[N('p','المبلغ'),N('r','النسبة السنوية %'),N('y','المدة (سنوات)')],run:v=>ok(v.p,v.r,v.y)?`الفائدة: ${fmt(v.p*v.r/100*v.y)}\nالإجمالي: ${fmt(+v.p+v.p*v.r/100*v.y)}`:''},
+  {id:'cagr',name:'معدل النمو السنوي المركب CAGR',desc:'من قيمة البداية والنهاية',inputs:[N('b','القيمة الأولية'),N('e','القيمة النهائية'),N('y','عدد السنوات')],run:v=>ok(v.b,v.e,v.y)&&+v.b>0&&+v.y>0?fmt((Math.pow(v.e/v.b,1/v.y)-1)*100,3)+'% سنوياً':''},
+]},
+{ id:'health', name:'حاسبات الصحة', tools:[
+  { id:'bmi', name:'مؤشر كتلة الجسم', desc:'احسب BMI من الوزن والطول',
+    inputs:[{id:'w',label:'الوزن (كجم)',type:'number'},{id:'h',label:'الطول (سم)',type:'number'}],
+    run:v=>{const w=+v.w,h=+v.h/100;if(!w||!h)return '';const b=w/(h*h);
+      const c=b<18.5?'نحافة':b<25?'وزن طبيعي':b<30?'وزن زائد':'سمنة';return `المؤشر: ${b.toFixed(1)}\nالتصنيف: ${c}`;} },
+  { id:'bmr', name:'معدل الحرق (السعرات)', desc:'معدل الأيض الأساسي والسعرات اللازمة للثبات',
+    inputs:[{id:'s',label:'الجنس',type:'select',options:[['m','ذكر'],['f','أنثى']]},{id:'a',label:'العمر',type:'number'},{id:'w',label:'الوزن (كجم)',type:'number'},{id:'h',label:'الطول (سم)',type:'number'},
+      {id:'k',label:'مستوى النشاط',type:'select',options:[['1.2','خامل'],['1.375','نشاط خفيف'],['1.55','نشاط متوسط'],['1.725','نشاط عالٍ']]}],
+    run:v=>{const a=+v.a,w=+v.w,h=+v.h;if(!a||!w||!h)return '';const b=10*w+6.25*h-5*a+(v.s==='m'?5:-161);
+      return `معدل الأيض الأساسي: ${Math.round(b)} سعرة\nالسعرات للحفاظ على الوزن: ${Math.round(b*v.k)} سعرة`;} },
+  { id:'water', name:'احتياج الماء اليومي', desc:'تقدير تقريبي حسب الوزن',
+    inputs:[{id:'w',label:'الوزن (كجم)',type:'number'}],
+    run:v=>{const w=+v.w;if(!w)return '';return `حوالي ${fmt(w*.033)} لتر يومياً (تقدير عام، ويزيد مع الحر والنشاط)`;} },
+  { id:'healthy-weight', name:'الوزن الصحي المناسب', desc:'النطاق الصحي حسب الطول',
+    inputs:[{id:'h',label:'الطول (سم)',type:'number'}],
+    run:v=>{const h=+v.h/100;if(!h)return '';return `من ${fmt(18.5*h*h,1)} إلى ${fmt(24.9*h*h,1)} كجم (حسب مؤشر كتلة الجسم الطبيعي)`;} },
+  { id:'due-date', name:'موعد الولادة المتوقع', desc:'من تاريخ أول يوم في آخر دورة',
+    inputs:[{id:'d',label:'أول يوم من آخر دورة',type:'date'}],
+    run:v=>{if(!v.d)return '';const s=new Date(v.d+'T00:00'),e=new Date(s.getTime()+280*864e5),w=Math.floor((Date.now()-s)/864e5/7);
+      return `الموعد المتوقع: ${e.toLocaleDateString('ar',{dateStyle:'full'})}`+(w>=0&&w<=42?`\nعمر الحمل الآن: ${w} أسبوع`:'')+'\n(تقدير فقط، والطبيب هو المرجع)';} },
+  { id:'heart-rate', name:'معدل نبض القلب', desc:'أقصى نبض ومناطق التمرين',
+    inputs:[{id:'a',label:'العمر',type:'number'}],
+    run:v=>{const a=+v.a;if(!a)return '';const m=220-a,z=(x,y)=>`${Math.round(m*x)}–${Math.round(m*y)}`;return `أقصى نبض تقديري: ${m}\nخفيف: ${z(.5,.6)}\nمتوسط: ${z(.6,.7)}\nهوائي: ${z(.7,.8)}\nشديد: ${z(.8,.9)}`;} },
+  { id:'sleep', name:'حاسبة النوم', desc:'أوقات النوم المناسبة حسب دورات 90 دقيقة',
+    inputs:[{id:'w',label:'وقت الاستيقاظ',type:'time'}],
+    run:v=>{if(!v.w)return '';const [h,m]=v.w.split(':').map(Number),t=h*60+m,f=x=>{x=((x%1440)+1440)%1440;return String(Math.floor(x/60)).padStart(2,'0')+':'+String(x%60).padStart(2,'0');};
+      return [6,5,4].map(c=>`${f(t-c*90-15)}  (${c} دورات = ${c*1.5} ساعات)`).join('\n')+'\n(مع احتساب 15 دقيقة للنوم)';} },
+  { id:'pace', name:'وتيرة الجري', desc:'السرعة والوتيرة من المسافة والزمن',
+    inputs:[{id:'d',label:'المسافة (كم)',type:'number'},{id:'t',label:'الزمن (دقائق)',type:'number'}],
+    run:v=>{const d=+v.d,t=+v.t;if(!d||!t)return '';const p=t/d,mm=Math.floor(p),ss=Math.round((p-mm)*60);return `الوتيرة: ${mm}:${String(ss%60).padStart(2,'0')} دقيقة/كم\nالسرعة: ${fmt(d/(t/60))} كم/ساعة`;} },
+  {id:'calorie-deficit',name:'عجز السعرات لتغيّر الوزن',desc:'العجز اليومي اللازم للوصول لوزن مستهدف',inputs:[N('a','وزنك الحالي (كجم)'),N('b','الوزن المستهدف (كجم)'),N('w','المدة (أسابيع)')],
+    run:v=>{if(!ok(v.a,v.b,v.w)||!+v.w)return '';const d=v.a-v.b;if(d<=0)return 'الوزن المستهدف يجب أن يكون أقل من الحالي';const wk=d/v.w;return `الفرق: ${fmt(d)} كجم\nالعجز اليومي: ${fmt(d*7700/(v.w*7),0)} سعرة\nالمعدل: ${fmt(wk,2)} كجم أسبوعياً`+(wk>1?'\nتنبيه: هذا أسرع من المعدل الشائع الموصى به (0.5–1 كجم أسبوعياً)، والأفضل مراجعة مختص':'');}},
+  {id:'body-fat',name:'نسبة الدهون في الجسم',desc:'تقدير بطريقة البحرية الأمريكية',inputs:[SEL('s','الجنس',[['m','ذكر'],['f','أنثى']]),N('h','الطول (سم)'),N('n','محيط الرقبة (سم)'),N('w','محيط الخصر (سم)'),N('p','محيط الورك (سم، للإناث)')],
+    run:v=>{if(!ok(v.h,v.n,v.w))return '';const h=+v.h,n=+v.n,w=+v.w,p=+v.p;let r;if(v.s==='m'){if(w<=n)throw new Error('الخصر يجب أن يكون أكبر من الرقبة');r=495/(1.0324-.19077*Math.log10(w-n)+.15456*Math.log10(h))-450;}else{if(!p||w+p<=n)throw new Error('أدخل محيط الورك');r=495/(1.29579-.35004*Math.log10(w+p-n)+.221*Math.log10(h))-450;}return fmt(r,1)+'% (تقدير تقريبي)';}},
+  {id:'waist-hip',name:'نسبة الخصر إلى الورك',desc:'مؤشر توزّع الدهون',inputs:[N('w','الخصر (سم)'),N('h','الورك (سم)'),SEL('s','الجنس',[['m','ذكر'],['f','أنثى']])],run:v=>{if(!ok(v.w,v.h)||!+v.h)return '';const r=v.w/v.h;return `النسبة: ${fmt(r,2)}\n`+(r>=(v.s==='m'?.9:.85)?'أعلى من الحد الذي تعتبره منظمة الصحة العالمية مرتبطاً بخطر أعلى':'ضمن النطاق الأقل خطراً');}},
+  {id:'waist-height',name:'نسبة الخصر إلى الطول',desc:'يُفضّل أن تكون أقل من 0.5',inputs:[N('w','الخصر (سم)'),N('h','الطول (سم)')],run:v=>{if(!ok(v.w,v.h)||!+v.h)return '';const r=v.w/v.h;return `النسبة: ${fmt(r,2)}\n`+(r<.5?'أقل من 0.5 (جيد)':'0.5 أو أكثر (يُنصح بالمتابعة)');}},
+  {id:'calories-burned',name:'السعرات المحروقة',desc:'حسب النشاط والوزن والمدة',inputs:[SEL('m','النشاط',[['3.5','مشي'],['9.8','جري'],['7.5','دراجة'],['6','سباحة'],['4','تمارين أثقال'],['8','كرة قدم'],['7','حبل قفز']]),N('w','الوزن (كجم)'),N('t','المدة (دقائق)')],run:v=>ok(v.w,v.t)?`حوالي ${fmt(v.m*3.5*v.w/200*v.t,0)} سعرة`:''},
+  {id:'steps-calories',name:'الخطوات إلى سعرات',desc:'تقدير السعرات والمسافة',inputs:[N('s','عدد الخطوات'),N('w','الوزن (كجم)')],run:v=>ok(v.s,v.w)?`السعرات: حوالي ${fmt(v.s*.04*v.w/70,0)}\nالمسافة: حوالي ${fmt(v.s*.00076,2)} كم`:''},
+  {id:'vo2max',name:'الحد الأقصى لاستهلاك الأكسجين',desc:'اختبار كوبر: المسافة التي قطعتها في 12 دقيقة',inputs:[N('d','المسافة (متر)')],run:v=>ok(v.d)?`VO₂max ≈ ${fmt((v.d-504.9)/44.73,1)} مل/كجم/دقيقة`:''},
+]},
+{ id:'math', name:'حاسبات الرياضيات', tools:[
+  { id:'calculator', name:'الآلة الحاسبة العادية', desc:'حاسبة بأزرار: جمع وطرح وضرب وقسمة ونسبة وأقواس', inputs:[],
+    render:p=>{let ex='',done=false;const d=el('div','cdisp','0'),g=el('div','ckeys');
+      const show=()=>{d.textContent=ex||'0';};
+      const calc=()=>{if(!ex||ex==='خطأ')return;try{const e=ex.replace(/×/g,'*').replace(/÷/g,'/').replace(/−/g,'-');if(!/^[\d+\-*/().\s]+$/.test(e))throw 0;const r=Function('"use strict";return ('+e+')')();if(!isFinite(r))throw 0;ex=String(+r.toPrecision(12));}catch(_){ex='خطأ';}done=true;show();};
+      const press=k=>{if(k==='=')return calc();if(ex==='خطأ')ex='';
+        if(k==='C'){ex='';done=false;}else if(k==='⌫'){ex=done?'':ex.slice(0,-1);done=false;}
+        else{const op='+−×÷%'.includes(k);if(done&&!op)ex='';done=false;ex+=k==='%'?'/100':k;}show();};
+      ['C','(',')','⌫','7','8','9','÷','4','5','6','×','1','2','3','−','0','.','%','+','='].forEach(k=>{const b=el('button',k==='='?'eq':'+−×÷%C⌫()'.includes(k)?'op':'',k);b.onclick=()=>press(k);g.append(b);});
+      p.append(d,g);} },
+  { id:'percent', name:'حاسبة النسبة المئوية', desc:'نسبة من رقم، أو كم تمثل نسبة',
+    inputs:[{id:'a',label:'الرقم الأول',type:'number'},{id:'b',label:'الرقم الثاني',type:'number'}],
+    run:v=>{const a=+v.a,b=+v.b;if(v.a===''||v.b==='')return '';
+      return `${a}% من ${b} = ${(a*b/100).toLocaleString('en')}\n${a} تمثل ${b?(a/b*100).toLocaleString('en',{maximumFractionDigits:2}):'—'}% من ${b}`;} },
+  { id:'stats', name:'الإحصاء (المتوسط والوسيط)', desc:'أدخل أرقاماً مفصولة بمسافة أو فاصلة',
+    inputs:[{id:'t',label:'الأرقام',type:'textarea'}],
+    run:v=>{const n=v.t.split(/[\s,،;]+/).filter(Boolean).map(Number);if(!n.length)return '';if(n.some(isNaN))throw new Error('أرقام غير صالحة');
+      const s=[...n].sort((a,b)=>a-b),m=s.length>>1,sum=n.reduce((a,b)=>a+b,0);
+      return `العدد: ${n.length}\nالمجموع: ${fmt(sum,4)}\nالمتوسط: ${fmt(sum/n.length,4)}\nالوسيط: ${fmt(s.length%2?s[m]:(s[m-1]+s[m])/2,4)}\nالأصغر: ${s[0]}\nالأكبر: ${s[s.length-1]}`;} },
+  { id:'gcd-lcm', name:'القاسم المشترك والمضاعف', desc:'ق.م.أ وم.م.أ لرقمين',
+    inputs:[{id:'a',label:'الرقم الأول',type:'number'},{id:'b',label:'الرقم الثاني',type:'number'}],
+    run:v=>{let a=Math.abs(Math.trunc(+v.a)),b=Math.abs(Math.trunc(+v.b));if(!a||!b)return '';const x=a*b;while(b)[a,b]=[b,a%b];return `القاسم المشترك الأكبر: ${a}\nالمضاعف المشترك الأصغر: ${x/a}`;} },
+  { id:'base-convert', name:'تحويل الأنظمة العددية', desc:'ثنائي وثماني وعشري وست عشري',
+    inputs:[{id:'n',label:'الرقم',type:'text'},{id:'f',label:'من',type:'select',value:'10',options:[['2','ثنائي'],['8','ثماني'],['10','عشري'],['16','ست عشري']]},{id:'t',label:'إلى',type:'select',value:'2',options:[['2','ثنائي'],['8','ثماني'],['10','عشري'],['16','ست عشري']]}],
+    run:v=>{if(!v.n.trim())return '';const x=parseInt(v.n.trim(),+v.f);if(isNaN(x))throw new Error('الرقم لا يناسب النظام المختار');return x.toString(+v.t).toUpperCase();} },
+  { id:'prime', name:'الأعداد الأولية والعوامل', desc:'هل العدد أولي؟ وما عوامله الأولية',
+    inputs:[{id:'n',label:'العدد الصحيح',type:'number'}],
+    run:v=>{let n=Math.trunc(+v.n);if(!n||n<2)return v.n===''?'':'أدخل عدداً صحيحاً من 2 فأكثر';if(n>1e12)throw new Error('العدد كبير جداً');const o=n,f=[];
+      for(let d=2;d*d<=n;d++)while(n%d===0){f.push(d);n/=d;}if(n>1)f.push(n);
+      return f.length===1?`${o} عدد أولي`:`${o} ليس أولياً\nالعوامل الأولية: ${f.join(' × ')}`;} },
+  { id:'quadratic', name:'حل المعادلة التربيعية', desc:'ax² + bx + c = 0',
+    inputs:[{id:'a',label:'a',type:'number'},{id:'b',label:'b',type:'number'},{id:'c',label:'c',type:'number'}],
+    run:v=>{const a=+v.a,b=+v.b,c=+v.c;if(v.a===''||v.b===''||v.c==='')return '';if(!a)throw new Error('a لا يساوي صفراً');const d=b*b-4*a*c;
+      if(d<0)return `المميّز = ${fmt(d,4)}\nلا توجد جذور حقيقية`;return `المميّز = ${fmt(d,4)}\nx₁ = ${fmt((-b+Math.sqrt(d))/(2*a),6)}\nx₂ = ${fmt((-b-Math.sqrt(d))/(2*a),6)}`;} },
+  { id:'basic-calc', name:'حاسبة بالكتابة (تعبير حسابي)', desc:'اكتب عملية مثل (12+3)*4 أو 2^10',
+    inputs:[{id:'e',label:'العملية الحسابية',type:'text'}],
+    run:v=>{let e=v.e.replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/×/g,'*').replace(/÷/g,'/').replace(/\^/g,'**').trim();if(!e)return '';
+      if(!/^[\d+\-*/().\s]+$/.test(e))throw new Error('استخدم الأرقام والعمليات + - × ÷ ^ والأقواس فقط');const r=Function('"use strict";return ('+e+')')();if(!isFinite(r))throw new Error('نتيجة غير صالحة');return String(+r.toPrecision(14));} },
+  { id:'percent-change', name:'نسبة التغيّر', desc:'الزيادة أو النقص بين قيمتين',
+    inputs:[{id:'a',label:'القيمة القديمة',type:'number'},{id:'b',label:'القيمة الجديدة',type:'number'}],
+    run:v=>{const a=+v.a,b=+v.b;if(!a||v.b==='')return '';const c=(b-a)/a*100;return `${c>=0?'زيادة':'نقص'} بنسبة ${fmt(Math.abs(c))}%`;} },
+  { id:'proportion', name:'النسبة والتناسب', desc:'إذا كان أ يقابل ب، فكم يقابل ج؟',
+    inputs:[{id:'a',label:'أ',type:'number'},{id:'b',label:'ب',type:'number'},{id:'c',label:'ج',type:'number'}],
+    run:v=>{const a=+v.a;if(!a||v.b===''||v.c==='')return '';return `الناتج: ${fmt(+v.b*+v.c/a,6)}`;} },
+  { id:'power-root', name:'القوى والجذور', desc:'الأس والجذر التربيعي والتكعيبي',
+    inputs:[{id:'n',label:'العدد',type:'number'},{id:'p',label:'الأس',type:'number',value:2}],
+    run:v=>{if(v.n==='')return '';const n=+v.n;return `${n} ^ ${v.p||2} = ${fmt(Math.pow(n,+v.p||2),6)}\nالجذر التربيعي: ${n<0?'—':fmt(Math.sqrt(n),6)}\nالجذر التكعيبي: ${fmt(Math.cbrt(n),6)}`;} },
+  { id:'roman', name:'الأرقام الرومانية', desc:'حوّل رقماً إلى رومانية أو العكس',
+    inputs:[{id:'t',label:'رقم أو رقم روماني',type:'text'}],
+    run:v=>{const t=v.t.trim().toUpperCase(),M=[[1000,'M'],[900,'CM'],[500,'D'],[400,'CD'],[100,'C'],[90,'XC'],[50,'L'],[40,'XL'],[10,'X'],[9,'IX'],[5,'V'],[4,'IV'],[1,'I']];if(!t)return '';
+      if(/^\d+$/.test(t)){let n=+t;if(n<1||n>3999)throw new Error('من 1 إلى 3999');let r='';M.forEach(([x,y])=>{while(n>=x){r+=y;n-=x;}});return r;}
+      if(!/^[MDCLXVI]+$/.test(t))throw new Error('إدخال غير صالح');let r=0,i=0;M.forEach(([x,y])=>{while(t.startsWith(y,i)){r+=x;i+=y.length;}});if(i!==t.length)throw new Error('رقم روماني غير صالح');return String(r);} },
+  { id:'combinatorics', name:'التباديل والتوافيق', desc:'n! وP(n,r) وC(n,r)',
+    inputs:[{id:'n',label:'n',type:'number'},{id:'r',label:'r',type:'number'}],
+    run:v=>{const n=Math.trunc(+v.n),r=Math.trunc(+v.r);if(v.n===''||v.r==='')return '';if(n<0||r<0||r>n||n>200)throw new Error('تأكد أن 0 ≤ r ≤ n ≤ 200');const f=k=>{let x=1n;for(let i=2n;i<=BigInt(k);i++)x*=i;return x;};
+      return `n! = ${f(n)}\nالتباديل P = ${f(n)/f(n-r)}\nالتوافيق C = ${f(n)/(f(r)*f(n-r))}`;} },
+  {id:'pct-diff',name:'الفرق المئوي',desc:'الفرق بين قيمتين نسبةً لمتوسطهما',inputs:[N('a','القيمة الأولى'),N('b','القيمة الثانية')],run:v=>ok(v.a,v.b)?fmt(Math.abs(v.a-v.b)/((+v.a+ +v.b)/2)*100)+'%':''},
+  {id:'pct-adjust',name:'زيادة أو نقص بنسبة',desc:'القيمة بعد إضافة نسبة أو خصمها',inputs:[N('a','القيمة'),N('p','النسبة %')],run:v=>ok(v.a,v.p)?`بعد الزيادة: ${fmt(v.a*(1+v.p/100))}\nبعد النقص: ${fmt(v.a*(1-v.p/100))}`:''},
+  {id:'variance',name:'التباين والربيعات',desc:'تباين، انحراف معياري، ربيعات، منوال',inputs:[{id:'t',label:'الأرقام',type:'textarea'}],
+    run:v=>{const n=v.t.split(/[\s,،;]+/).filter(Boolean).map(Number);if(n.length<2)return '';if(n.some(isNaN))throw new Error('أرقام غير صالحة');const L=n.length,m=n.reduce((a,b)=>a+b,0)/L,ss=n.reduce((a,b)=>a+(b-m)**2,0),s=[...n].sort((a,b)=>a-b),q=p=>{const i=(L-1)*p,l=Math.floor(i);return s[l]+(s[Math.ceil(i)]-s[l])*(i-l);},c={};n.forEach(x=>c[x]=(c[x]||0)+1);const mx=Math.max(...Object.values(c));
+      return `التباين (للمجتمع): ${fmt(ss/L,4)}\nالتباين (للعينة): ${fmt(ss/(L-1),4)}\nالانحراف المعياري: ${fmt(Math.sqrt(ss/L),4)} / ${fmt(Math.sqrt(ss/(L-1)),4)}\nالربيع الأول Q1: ${fmt(q(.25),4)}\nالوسيط Q2: ${fmt(q(.5),4)}\nالربيع الثالث Q3: ${fmt(q(.75),4)}\nالمدى الربيعي: ${fmt(q(.75)-q(.25),4)}\nالمدى: ${fmt(s[L-1]-s[0],4)}\nالمنوال: ${mx>1?Object.keys(c).filter(k=>c[k]===mx).join('، '):'لا يوجد'}`;}},
+  {id:'fractions',name:'حاسبة الكسور',desc:'جمع وطرح وضرب وقسمة الكسور مع الاختصار',inputs:[N('a','بسط 1'),N('b','مقام 1'),SEL('o','العملية',[['+','+ جمع'],['-','− طرح'],['*','× ضرب'],['/','÷ قسمة']]),N('c','بسط 2'),N('d','مقام 2')],
+    run:v=>{if(!ok(v.a,v.b,v.c,v.d))return '';const[a,b,c,d]=[v.a,v.b,v.c,v.d].map(Number);if(!b||!d)throw new Error('المقام لا يساوي صفراً');let n,m;if(v.o==='+'){n=a*d+c*b;m=b*d;}else if(v.o==='-'){n=a*d-c*b;m=b*d;}else if(v.o==='*'){n=a*c;m=b*d;}else{n=a*d;m=b*c;}if(!m)throw new Error('القسمة على صفر');
+      let g=(x,y)=>y?g(y,x%y):Math.abs(x),k=g(n,m)||1;n/=k;m/=k;if(m<0){n=-n;m=-m;}return `${n}${m===1?'':'/'+m}\nالقيمة العشرية: ${fmt(n/m,6)}`;}},
+  {id:'slope',name:'الميل والمسافة بين نقطتين',desc:'ميل الخط والمعادلة ونقطة المنتصف',inputs:[N('x1','x₁'),N('y1','y₁'),N('x2','x₂'),N('y2','y₂')],
+    run:v=>{if(!ok(v.x1,v.y1,v.x2,v.y2))return '';const[a,b,c,d]=[v.x1,v.y1,v.x2,v.y2].map(Number),dx=c-a,dy=d-b;return `المسافة: ${fmt(Math.hypot(dx,dy),4)}\nنقطة المنتصف: (${fmt((a+c)/2,4)}, ${fmt((b+d)/2,4)})\n`+(dx?`الميل m = ${fmt(dy/dx,4)}\nالمعادلة: y = ${fmt(dy/dx,4)}x + ${fmt(b-dy/dx*a,4)}`:'الخط رأسي (الميل غير معرّف)');}},
+  {id:'logarithm',name:'اللوغاريتمات',desc:'لوغاريتم بأي أساس واللوغاريتم الطبيعي',inputs:[N('x','العدد'),N('b','الأساس',10)],run:v=>{if(!ok(v.x)||+v.x<=0)return '';return `log₍${v.b||10}₎ = ${fmt(Math.log(v.x)/Math.log(v.b||10),8)}\nln = ${fmt(Math.log(v.x),8)}\nlog₁₀ = ${fmt(Math.log10(v.x),8)}\nlog₂ = ${fmt(Math.log2(v.x),8)}`;}},
+  {id:'volume-shapes',name:'حجم الأشكال ومساحتها السطحية',desc:'مكعب، متوازي مستطيلات، أسطوانة، كرة، مخروط',inputs:[SEL('s','الشكل',[['cube','مكعب (أ = الضلع)'],['box','متوازي مستطيلات (أ، ب، ج)'],['cyl','أسطوانة (أ = نصف القطر، ب = الارتفاع)'],['sph','كرة (أ = نصف القطر)'],['cone','مخروط (أ = نصف القطر، ب = الارتفاع)']]),N('a','أ'),N('b','ب'),N('c','ج')],
+    run:v=>{const a=+v.a,b=+v.b,c=+v.c;if(!a)return '';const P=Math.PI,r={cube:[a**3,6*a*a],box:[a*b*c,2*(a*b+b*c+a*c)],cyl:[P*a*a*b,2*P*a*(a+b)],sph:[4/3*P*a**3,4*P*a*a],cone:[P*a*a*b/3,P*a*(a+Math.hypot(a,b))]}[v.s];if(r.some(x=>!x))return '';return `الحجم: ${fmt(r[0],4)}\nالمساحة السطحية: ${fmt(r[1],4)}`;}},
+  {id:'probability',name:'الاحتمالات (ذات الحدين)',desc:'احتمال عدد نجاحات في محاولات متكررة',inputs:[N('p','احتمال النجاح في المحاولة (0 إلى 1)'),N('n','عدد المحاولات'),N('k','عدد النجاحات المطلوبة')],
+    run:v=>{if(!ok(v.p,v.n,v.k))return '';const p=+v.p,n=Math.trunc(+v.n),k=Math.trunc(+v.k);if(p<0||p>1||n<1||n>1000||k<0||k>n)throw new Error('تحقق من القيم');const C=(n,k)=>{let r=1;for(let i=1;i<=k;i++)r=r*(n-k+i)/i;return r;},P=j=>C(n,j)*p**j*(1-p)**(n-j);let ge=0;for(let j=k;j<=n;j++)ge+=P(j);
+      return `بالضبط ${k}: ${fmt(P(k)*100,4)}%\n${k} أو أكثر: ${fmt(ge*100,4)}%\n${k} أو أقل: ${fmt((1-ge+P(k))*100,4)}%\nالمتوقع: ${fmt(n*p,3)} نجاح`;}},
+]},
+{ id:'time', name:'التاريخ والوقت', tools:[
+  { id:'age', name:'حاسبة العمر', desc:'عمرك بالسنوات والأشهر والأيام',
+    inputs:[{id:'d',label:'تاريخ الميلاد',type:'date'}],
+    run:v=>{if(!v.d)return '';const b=new Date(v.d),n=new Date();if(b>n)throw new Error('التاريخ في المستقبل');
+      let y=n.getFullYear()-b.getFullYear(),m=n.getMonth()-b.getMonth(),d=n.getDate()-b.getDate();
+      if(d<0){m--;d+=new Date(n.getFullYear(),n.getMonth(),0).getDate();}
+      if(m<0){y--;m+=12;}
+      return `${y} سنة و ${m} شهر و ${d} يوم\nإجمالي الأيام: ${Math.floor((n-b)/864e5).toLocaleString('en')}`;} },
+  { id:'date-diff', name:'الفرق بين تاريخين', desc:'عدد الأيام والأسابيع بين تاريخين',
+    inputs:[{id:'a',label:'من',type:'date'},{id:'b',label:'إلى',type:'date'}],
+    run:v=>{if(!v.a||!v.b)return '';const d=Math.round(Math.abs(new Date(v.b)-new Date(v.a))/864e5);
+      return `${d} يوم\n${Math.floor(d/7)} أسبوع و ${d%7} يوم\nتقريباً ${(d/30.44).toFixed(1)} شهر`;} },
+  { id:'hijri', name:'التاريخ الهجري', desc:'تحويل التاريخ الميلادي إلى هجري',
+    inputs:[{id:'d',label:'التاريخ الميلادي',type:'date'}],
+    run:v=>v.d?new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura',{dateStyle:'full',timeZone:'UTC'}).format(new Date(v.d)):'' },
+  { id:'countdown', name:'عدّاد تنازلي', desc:'كم يوماً متبقياً على حدث',
+    inputs:[{id:'d',label:'تاريخ الحدث',type:'date'}],
+    run:v=>{if(!v.d)return '';const n=new Date();n.setHours(0,0,0,0);const d=Math.round((new Date(v.d+'T00:00')-n)/864e5);
+      return d>0?`متبقي ${d} يوم (${Math.floor(d/7)} أسبوع و ${d%7} يوم)`:d===0?'الحدث اليوم':`مضى ${-d} يوم`;} },
+  { id:'add-days', name:'إضافة أيام لتاريخ', desc:'تاريخ بعد أو قبل عدد من الأيام',
+    inputs:[{id:'d',label:'التاريخ',type:'date'},{id:'n',label:'عدد الأيام (سالب للرجوع)',type:'number',value:30}],
+    run:v=>{if(!v.d||v.n==='')return '';const d=new Date(v.d+'T00:00');d.setDate(d.getDate()+Math.trunc(+v.n));return d.toLocaleDateString('ar',{dateStyle:'full'});} },
+  { id:'time-diff', name:'المدة بين وقتين', desc:'مثل ساعات العمل بين بداية ونهاية',
+    inputs:[{id:'a',label:'من الساعة',type:'time'},{id:'b',label:'إلى الساعة',type:'time'}],
+    run:v=>{if(!v.a||!v.b)return '';const t=s=>s.split(':').reduce((x,y)=>x*60+ +y,0);let d=t(v.b)-t(v.a);if(d<0)d+=1440;return `${Math.floor(d/60)} ساعة و ${d%60} دقيقة\n(${fmt(d/60,2)} ساعة)`;} },
+  { id:'day-of-week', name:'يوم الأسبوع لأي تاريخ', desc:'اليوم ورقمه في السنة',
+    inputs:[{id:'d',label:'التاريخ',type:'date'}],
+    run:v=>{if(!v.d)return '';const d=new Date(v.d+'T00:00'),y=Math.floor((d-new Date(d.getFullYear(),0,1))/864e5)+1;return `${d.toLocaleDateString('ar',{weekday:'long'})}\nاليوم رقم ${y} من السنة`;} },
+]},
+{ id:'conv', name:'التحويلات', tools:[
+  { id:'unit-convert', name:'محوّل الوحدات الشامل', desc:'طول، وزن، مساحة، حجم، سرعة، بيانات، حرارة',
+    inputs:[{id:'x',label:'القيمة',type:'number'},{id:'a',label:'من',type:'select',value:'len|km',options:UN.map(([c,k,n])=>[c+'|'+k,CAT[c]+': '+n])},{id:'b',label:'إلى',type:'select',value:'len|mi',options:UN.map(([c,k,n])=>[c+'|'+k,CAT[c]+': '+n])}],
+    run:v=>{if(v.x==='')return '';const [c1,k1]=v.a.split('|'),[c2,k2]=v.b.split('|');if(c1!==c2)throw new Error('اختر وحدتين من نفس النوع');const x=+v.x;
+      if(c1==='temp'){const C=k1==='c'?x:k1==='f'?(x-32)*5/9:x-273.15;return fmt(k2==='c'?C:k2==='f'?C*9/5+32:C+273.15,6);}
+      const f=k=>UN.find(u=>u[1]===k&&u[0]===c1)[3];return fmt(x*f(k1)/f(k2),8);} },
+]},
+{ id:'study', name:'الدراسة', tools:[
+  { id:'gpa', name:'حاسبة المعدل التراكمي', desc:'اكتب في كل سطر: النقاط ثم الساعات (مثل 4 3)',
+    inputs:[{id:'t',label:'المواد (نقاط ساعات)',type:'textarea'}],
+    run:v=>{let q=0,h=0;v.t.split('\n').forEach(l=>{const a=l.trim().split(/\s+/).map(Number);if(a.length>=2&&!a.some(isNaN)){q+=a[0]*a[1];h+=a[1];}});return h?`المعدل: ${fmt(q/h)}\nإجمالي الساعات: ${h}`:'';} },
+  { id:'weighted-grade', name:'الدرجة الموزونة', desc:'اكتب في كل سطر: الدرجة ثم الوزن % (مثل 85 30)',
+    inputs:[{id:'t',label:'الدرجات (درجة وزن)',type:'textarea'}],
+    run:v=>{let s=0,w=0;v.t.split('\n').forEach(l=>{const a=l.trim().split(/\s+/).map(Number);if(a.length>=2&&!a.some(isNaN)){s+=a[0]*a[1];w+=a[1];}});return w?`الدرجة النهائية: ${fmt(s/w)}\nمجموع الأوزان: ${w}%`:'';} },
+  { id:'final-needed', name:'الدرجة المطلوبة في الاختبار النهائي', desc:'كم تحتاج لتحقق الدرجة المستهدفة',
+    inputs:[{id:'c',label:'درجتك الحالية %',type:'number'},{id:'w',label:'وزن النهائي %',type:'number'},{id:'t',label:'الدرجة المستهدفة %',type:'number'}],
+    run:v=>{const c=+v.c,w=+v.w/100,t=+v.t;if(v.c===''||!w||v.t==='')return '';const n=(t-c*(1-w))/w;return `تحتاج ${fmt(Math.max(n,0))}%`+(n>100?'\n(الهدف غير قابل للتحقيق بهذه الأوزان)':'');} },
+]},
+{ id:'home', name:'المنزل والبناء', tools:[
+  { id:'paint', name:'كمية الدهان', desc:'لترات الدهان اللازمة لجدران غرفة',
+    inputs:[{id:'l',label:'الطول (م)',type:'number'},{id:'w',label:'العرض (م)',type:'number'},{id:'h',label:'الارتفاع (م)',type:'number',value:3},{id:'o',label:'مساحة الأبواب والنوافذ (م²)',type:'number',value:0},{id:'c',label:'عدد الطبقات',type:'number',value:2},{id:'k',label:'تغطية اللتر (م²)',type:'number',value:10}],
+    run:v=>{const a=2*(+v.l+ +v.w)*+v.h-(+v.o||0);if(!+v.l||!+v.w||!+v.h)return '';return `مساحة الجدران: ${fmt(a)} م²\nالدهان المطلوب: ${fmt(a*(+v.c||1)/(+v.k||10),1)} لتر`;} },
+  { id:'tiles', name:'عدد البلاط', desc:'عدد البلاطات لمساحة معينة مع نسبة الهدر',
+    inputs:[{id:'l',label:'طول الغرفة (م)',type:'number'},{id:'w',label:'عرض الغرفة (م)',type:'number'},{id:'a',label:'طول البلاطة (سم)',type:'number',value:60},{id:'b',label:'عرض البلاطة (سم)',type:'number',value:60},{id:'x',label:'نسبة الهدر %',type:'number',value:10}],
+    run:v=>{const A=+v.l*+v.w,t=(+v.a*+v.b)/1e4;if(!A||!t)return '';return `المساحة: ${fmt(A)} م²\nعدد البلاطات: ${Math.ceil(A/t*(1+(+v.x||0)/100))}`;} },
+  { id:'concrete', name:'حجم الخرسانة', desc:'م³ المطلوبة لصبّة مع زيادة 10%',
+    inputs:[{id:'l',label:'الطول (م)',type:'number'},{id:'w',label:'العرض (م)',type:'number'},{id:'t',label:'السماكة (سم)',type:'number'}],
+    run:v=>{const x=+v.l*+v.w*+v.t/100;if(!x)return '';return `الحجم: ${fmt(x,3)} م³\nمع هدر 10%: ${fmt(x*1.1,3)} م³`;} },
+  { id:'device-power', name:'تكلفة تشغيل جهاز كهربائي', desc:'استهلاك الكهرباء الشهري لجهاز',
+    inputs:[{id:'w',label:'قدرة الجهاز (واط)',type:'number'},{id:'h',label:'ساعات التشغيل يومياً',type:'number'},{id:'p',label:'سعر الكيلوواط ساعة',type:'number'}],
+    run:v=>{const k=+v.w*+v.h*30/1000;if(!k)return '';return `الاستهلاك الشهري: ${fmt(k)} ك.و.س`+(+v.p?`\nالتكلفة الشهرية: ${fmt(k*+v.p)}`:'');} },
+  {id:'gravel',name:'الحصى والرمل والتربة',desc:'الحجم والوزن المطلوب لمساحة',inputs:[N('l','الطول (م)'),N('w','العرض (م)'),N('d','العمق (سم)'),SEL('m','المادة',[['1.6','حصى'],['1.5','رمل'],['1.3','تربة']])],run:v=>{if(!ok(v.l,v.w,v.d))return '';const x=v.l*v.w*v.d/100;return `الحجم: ${fmt(x,2)} م³\nالوزن التقريبي: ${fmt(x*v.m,2)} طن`;}},
+  {id:'stairs',name:'حاسبة السلالم',desc:'عدد الدرجات وعمق الدرجة',inputs:[N('h','الارتفاع الكلي (سم)'),N('r','ارتفاع الدرجة المفضّل (سم)',17)],run:v=>{if(!ok(v.h,v.r)||!+v.r)return '';const n=Math.round(v.h/v.r),r=v.h/n;return `عدد الدرجات: ${n}\nارتفاع الدرجة: ${fmt(r)} سم\nعمق الدرجة: ${fmt(63-2*r)} سم (قاعدة 2×الارتفاع + العمق ≈ 63)`;}},
+  {id:'roof-pitch',name:'ميل السقف',desc:'الزاوية والنسبة من الارتفاع والامتداد',inputs:[N('a','الارتفاع (رأسي)'),N('b','الامتداد الأفقي')],run:v=>ok(v.a,v.b)&&+v.b?`الزاوية: ${fmt(Math.atan(v.a/v.b)*180/Math.PI)}°\nالميل: ${fmt(v.a/v.b*100)}%\nالنسبة: ${fmt(v.a/v.b*12,1)} : 12`:''},
+  {id:'bricks',name:'عدد الطوب',desc:'الطوب اللازم لجدار',inputs:[N('a','مساحة الجدار (م²)'),N('l','طول الطوبة (سم)',20),N('h','ارتفاع الطوبة (سم)',10),N('j','سماكة الفاصل (سم)',1),N('x','نسبة الهدر %',5)],run:v=>ok(v.a,v.l,v.h)?`${Math.ceil(v.a/(((+v.l+ +v.j)*(+v.h+ +v.j))/1e4)*(1+(+v.x||0)/100))} طوبة`:''},
+  {id:'flooring',name:'الأرضيات',desc:'عدد العلب لتغطية أرضية',inputs:[N('l','الطول (م)'),N('w','العرض (م)'),N('x','نسبة الهدر %',10),N('c','تغطية العلبة (م²)',2.2)],run:v=>{if(!ok(v.l,v.w,v.c)||!+v.c)return '';const a=v.l*v.w*(1+(+v.x||0)/100);return `المساحة مع الهدر: ${fmt(a)} م²\nعدد العلب: ${Math.ceil(a/v.c)}`;}},
+  {id:'pipe-volume',name:'حجم الأنابيب',desc:'سعة أنبوب باللترات',inputs:[N('d','القطر الداخلي (مم)'),N('l','الطول (م)')],run:v=>ok(v.d,v.l)?`${fmt(Math.PI*(v.d/2000)**2*v.l*1000,2)} لتر`:''},
+]},
+{ id:'car', name:'السيارات والسفر', tools:[
+  { id:'fuel-consumption', name:'استهلاك الوقود', desc:'لتر/100كم وكم/لتر',
+    inputs:[{id:'d',label:'المسافة (كم)',type:'number'},{id:'l',label:'الوقود المستهلك (لتر)',type:'number'}],
+    run:v=>{const d=+v.d,l=+v.l;if(!d||!l)return '';return `${fmt(l/d*100)} لتر/100كم\n${fmt(d/l)} كم/لتر`;} },
+  { id:'trip-cost', name:'تكلفة الرحلة', desc:'كم ستكلف رحلتك من الوقود',
+    inputs:[{id:'d',label:'المسافة (كم)',type:'number'},{id:'c',label:'الاستهلاك (لتر/100كم)',type:'number'},{id:'p',label:'سعر اللتر',type:'number'}],
+    run:v=>{const l=+v.d*+v.c/100;if(!l)return '';return `الوقود: ${fmt(l)} لتر`+(+v.p?`\nالتكلفة: ${fmt(l*+v.p)}`:'');} },
+  { id:'speed-time', name:'زمن الرحلة', desc:'الوقت من المسافة والسرعة',
+    inputs:[{id:'d',label:'المسافة (كم)',type:'number'},{id:'s',label:'السرعة (كم/ساعة)',type:'number'}],
+    run:v=>{const d=+v.d,s=+v.s;if(!d||!s)return '';const m=Math.round(d/s*60);return `${Math.floor(m/60)} ساعة و ${m%60} دقيقة`;} },
+]},
+{ id:'sci', name:'العلوم والهندسة', tools:[
+  { id:'ohm', name:'قانون أوم', desc:'اترك حقلاً واحداً فارغاً ليُحسب (V = I × R)',
+    inputs:[{id:'v',label:'الجهد V (فولت)',type:'number'},{id:'i',label:'التيار I (أمبير)',type:'number'},{id:'r',label:'المقاومة R (أوم)',type:'number'}],
+    run:v=>{const e=['v','i','r'].filter(k=>v[k]==='');if(e.length!==1)return 'اترك حقلاً واحداً فارغاً';const V=+v.v,I=+v.i,R=+v.r;
+      const o=e[0]==='v'?{V:I*R,I,R}:e[0]==='i'?{V,I:V/R,R}:{V,I,R:V/I};return `V = ${fmt(o.V,4)} فولت\nI = ${fmt(o.I,4)} أمبير\nR = ${fmt(o.R,4)} أوم\nالقدرة P = ${fmt(o.V*o.I,4)} واط`;} },
+  { id:'area-shapes', name:'مساحة الأشكال', desc:'مستطيل، مثلث، دائرة',
+    inputs:[{id:'s',label:'الشكل',type:'select',options:[['r','مستطيل (الطول × العرض)'],['t','مثلث (القاعدة × الارتفاع)'],['c','دائرة (نصف القطر)']]},{id:'a',label:'القيمة الأولى',type:'number'},{id:'b',label:'القيمة الثانية (ليست للدائرة)',type:'number'}],
+    run:v=>{const a=+v.a,b=+v.b;if(!a)return '';if(v.s==='c')return `المساحة: ${fmt(Math.PI*a*a,4)}\nالمحيط: ${fmt(2*Math.PI*a,4)}`;if(!b)return '';return v.s==='r'?`المساحة: ${fmt(a*b,4)}\nالمحيط: ${fmt(2*(a+b),4)}`:`المساحة: ${fmt(a*b/2,4)}`;} },
+  { id:'pythagoras', name:'نظرية فيثاغورس', desc:'طول الوتر من ضلعين',
+    inputs:[{id:'a',label:'الضلع الأول',type:'number'},{id:'b',label:'الضلع الثاني',type:'number'}],
+    run:v=>{if(!+v.a||!+v.b)return '';return `الوتر = ${fmt(Math.hypot(+v.a,+v.b),6)}`;} },
+  {id:'wet-bulb',name:'درجة حرارة البصيلة الرطبة',desc:'تقدير بمعادلة Stull',inputs:[N('t','درجة الحرارة (°م)'),N('h','الرطوبة النسبية %')],run:v=>{if(!ok(v.t,v.h))return '';const T=+v.t,R=+v.h;return fmt(T*Math.atan(.151977*Math.sqrt(R+8.313659))+Math.atan(T+R)-Math.atan(R-1.676331)+.00391838*R**1.5*Math.atan(.023101*R)-4.686035,1)+' °م';}},
+  {id:'power-weight',name:'نسبة القدرة إلى الوزن',desc:'كيلوواط/كجم وحصان/طن',inputs:[N('p','القدرة (كيلوواط)'),N('w','الوزن (كجم)')],run:v=>ok(v.p,v.w)&&+v.w?`${fmt(v.p/v.w,4)} كيلوواط/كجم\n${fmt(v.p*1.34102/(v.w/1000),1)} حصان/طن`:''},
+  {id:'wavelength',name:'الطول الموجي والتردد',desc:'λ = السرعة ÷ التردد',inputs:[N('f','التردد (هرتز)'),SEL('c','الوسط',[['299792458','ضوء/موجات كهرومغناطيسية'],['343','صوت في الهواء']])],run:v=>ok(v.f)&&+v.f?`λ = ${(v.c/v.f).toExponential(4)} متر`:''},
+  {id:'reynolds',name:'رقم رينولدز',desc:'نوع الجريان: صفائحي أو مضطرب',inputs:[N('r','الكثافة (كجم/م³)'),N('v','السرعة (م/ث)'),N('d','القطر (م)'),N('m','اللزوجة (باسكال·ث)')],run:v=>{if(!ok(v.r,v.v,v.d,v.m)||!+v.m)return '';const R=v.r*v.v*v.d/v.m;return `Re = ${fmt(R,0)}\n${R<2300?'جريان صفائحي':R>4000?'جريان مضطرب':'جريان انتقالي'}`;}},
+  {id:'dilution',name:'التخفيف C₁V₁ = C₂V₂',desc:'اترك حقلاً واحداً فارغاً',inputs:[N('a','C₁'),N('b','V₁'),N('c','C₂'),N('d','V₂')],run:v=>{const k=['a','b','c','d'].filter(x=>v[x]==='');if(k.length!==1)return 'اترك حقلاً واحداً فارغاً';const[a,b,c,d]=['a','b','c','d'].map(x=>+v[x]);const r={a:c*d/b,b:c*d/a,c:a*b/d,d:a*b/c}[k[0]];return `القيمة المجهولة = ${fmt(r,6)}`;}},
+  {id:'molarity',name:'التركيز المولي',desc:'المولارية من الكتلة والكتلة المولية',inputs:[N('m','الكتلة (غرام)'),N('M','الكتلة المولية (غ/مول)'),N('v','الحجم (لتر)')],run:v=>ok(v.m,v.M,v.v)&&+v.M&&+v.v?`المولات: ${fmt(v.m/v.M,5)} مول\nالتركيز: ${fmt(v.m/v.M/v.v,5)} مول/لتر`:''},
+  {id:'ph',name:'الرقم الهيدروجيني pH',desc:'من التركيز إلى pH أو العكس',inputs:[SEL('m','التحويل',[['c','تركيز H⁺ ← pH'],['p','pH ← تركيز H⁺']]),N('x','القيمة')],run:v=>{if(!ok(v.x))return '';if(v.m==='c'){if(+v.x<=0)throw new Error('التركيز موجب');const p=-Math.log10(v.x);return `pH = ${fmt(p,3)}\npOH = ${fmt(14-p,3)}`;}return `[H⁺] = ${(10**-v.x).toExponential(3)} مول/لتر`;}},
+  {id:'sci-notation',name:'التدوين العلمي',desc:'اكتب أي رقم كبير أو صغير',inputs:[{id:'x',label:'العدد',type:'text'}],run:v=>{if(!v.x.trim())return '';const n=Number(v.x);if(isNaN(n))throw new Error('عدد غير صالح');const[m,e]=n.toExponential(6).split('e');return `${+m} × 10^${+e}\n${n.toExponential()}`;}},
+  {id:'half-life',name:'التحلل ونصف العمر',desc:'الكمية المتبقية بعد مدة',inputs:[N('n','الكمية الأولية'),N('h','نصف العمر'),N('t','الزمن (بنفس وحدة نصف العمر)')],run:v=>{if(!ok(v.n,v.h,v.t)||!+v.h)return '';const f=.5**(v.t/v.h);return `المتبقي: ${fmt(v.n*f,4)}\nالنسبة: ${fmt(f*100,3)}%`;}},
+  {id:'population-growth',name:'النمو السكاني/الأسي',desc:'N = N₀ × (1 + r)^t',inputs:[N('n','العدد الأولي'),N('r','معدل النمو لكل فترة %'),N('t','عدد الفترات')],run:v=>ok(v.n,v.r,v.t)?`العدد بعد ${v.t} فترة: ${fmt(v.n*(1+v.r/100)**v.t,2)}`:''},
+]},
+{ id:'islamic', name:'الحاسبات الشرعية', tools:[
+  { id:'zakat-fitr', name:'زكاة الفطر', desc:'مقدارها للعائلة (الصاع حوالي 3 كجم)',
+    inputs:[{id:'n',label:'عدد الأشخاص',type:'number'},{id:'k',label:'كجم للشخص',type:'number',value:3},{id:'p',label:'سعر الكيلو من الطعام (اختياري)',type:'number'}],
+    run:v=>{const n=+v.n,k=+v.k;if(!n||!k)return '';return `الإجمالي: ${fmt(n*k)} كجم`+(+v.p?`\nقيمته: ${fmt(n*k*+v.p)}`:'');} },
+  { id:'zakat-gold', name:'زكاة الذهب', desc:'بالغرامات (النصاب 85 غراماً عيار 24)',
+    inputs:[{id:'g',label:'وزن الذهب (غرام عيار 24 أو ما يعادله)',type:'number'}],
+    run:v=>{const g=+v.g;if(!g)return '';return g>=85?`بلغ النصاب\nالزكاة: ${fmt(g*.025,3)} غرام (2.5%)\n(بشرط مرور سنة هجرية)`:'لم يبلغ النصاب (85 غراماً)';} },
+]},
+{ id:'life', name:'أدوات الحياة اليومية', tools:[
+  {id:'birth-year',name:'سنة الميلاد من العمر',desc:'سنة الولادة التقريبية',inputs:[N('a','العمر')],run:v=>{if(!ok(v.a))return '';const y=new Date().getFullYear()-Math.trunc(v.a);return `غالباً ${y} أو ${y-1}`;}},
+  {id:'elapsed',name:'عدّاد الأشهر والأسابيع',desc:'المدة من تاريخ إلى اليوم أو منه',inputs:[{id:'d',label:'التاريخ',type:'date'}],run:v=>{if(!v.d)return '';const n=new Date();n.setHours(0,0,0,0);const d=new Date(v.d+'T00:00'),a=Math.abs(Math.round((n-d)/864e5));let m=(n.getFullYear()-d.getFullYear())*12+n.getMonth()-d.getMonth();if(d<n?n.getDate()<d.getDate():d.getDate()<n.getDate())m+=d<n?-1:1;return `${d<n?'مضى':'متبقي'}: ${a} يوم\nأسابيع: ${Math.floor(a/7)} و ${a%7} يوم\nأشهر: ${Math.abs(m)}`;}},
+  {id:'download-time',name:'وقت التنزيل',desc:'كم يستغرق تنزيل ملف',inputs:[N('s','حجم الملف'),SEL('u','الوحدة',[['1','ميغابايت'],['1024','غيغابايت'],['1048576','تيرابايت']]),N('v','سرعة الإنترنت (ميغابت/ث)')],run:v=>ok(v.s,v.v)&&+v.v?hm(v.s*v.u*8/v.v):''},
+  {id:'unit-price',name:'مقارنة سعر الوحدة',desc:'أي العبوتين أوفر؟',inputs:[N('p','سعر العبوة 1'),N('q','كمية العبوة 1'),N('r','سعر العبوة 2'),N('t','كمية العبوة 2')],run:v=>{if(!ok(v.p,v.q,v.r,v.t)||!+v.q||!+v.t)return '';const a=v.p/v.q,b=v.r/v.t;return `سعر الوحدة 1: ${fmt(a,4)}\nسعر الوحدة 2: ${fmt(b,4)}\n`+(a===b?'متساويتان':`الأوفر: العبوة ${a<b?1:2} (أرخص بنسبة ${fmt(Math.abs(a-b)/Math.max(a,b)*100)}%)`);}},
+  {id:'double-discount',name:'خصمان متتاليان',desc:'السعر بعد خصم على خصم',inputs:[N('p','السعر'),N('a','الخصم الأول %'),N('b','الخصم الثاني %')],run:v=>{if(!ok(v.p,v.a,v.b))return '';const f=v.p*(1-v.a/100)*(1-v.b/100);return `السعر النهائي: ${fmt(f)}\nالخصم الفعلي: ${fmt((1-f/v.p)*100)}%`;}},
+  {id:'one-rep-max',name:'أقصى وزن لتكرار واحد (1RM)',desc:'تقدير من وزن وعدد تكرارات',inputs:[N('w','الوزن (كجم)'),N('r','عدد التكرارات (حتى 10)')],run:v=>ok(v.w,v.r)&&v.r>0&&v.r<37?`إبلي: ${fmt(v.w*(1+v.r/30),1)} كجم\nبريزكي: ${fmt(v.w*36/(37-v.r),1)} كجم`:''},
+]},
+];
+
+/* ---------- المحرك (لا تحتاج تعديله) ---------- */
+const $=(s,r=document)=>r.querySelector(s);
+const el=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e;};
+const view=$('#view');
+let filter='all',q='';
+
+function home(){
+  view.innerHTML='';
+  const s=el('input','search');s.placeholder='ابحث عن حاسبة…';s.value=q;view.append(s);
+  const chips=el('div','chips');view.append(chips);
+  [['all','الكل'],...SECTIONS.map(x=>[x.id,x.name])].forEach(([id,n])=>{
+    const c=el('button','chip'+(filter===id?' on':''),n);
+    c.onclick=()=>{filter=id;home();};chips.append(c);});
+  const box=el('div');view.append(box);
+  const draw=()=>{
+    box.innerHTML='';let any=false;
+    SECTIONS.filter(x=>filter==='all'||x.id===filter).forEach(sec=>{
+      const list=sec.tools.filter(t=>(t.name+t.desc).toLowerCase().includes(q.toLowerCase()));
+      if(!list.length)return;any=true;
+      box.append(el('h2','',sec.name));
+      const g=el('div','grid');box.append(g);
+      list.forEach(t=>{const c=el('button','card');c.append(el('b','',t.name),el('span','',t.desc));
+        c.onclick=()=>{location.hash=t.id;};g.append(c);});
+    });
+    if(!any)box.append(el('div','empty','لا توجد أدوات مطابقة'));
+  };
+  s.oninput=()=>{q=s.value;draw();};draw();
+}
+
+function dateField(){
+  const w=el('div','dsel'),MN=['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'],Y=new Date().getFullYear();
+  const mk=(ph,list)=>{const s=el('select'),o=el('option','',ph);o.value='';s.append(o);list.forEach(([v,n])=>{const x=el('option','',n);x.value=v;s.append(x);});return s;};
+  const d=mk('اليوم',Array.from({length:31},(_,i)=>[i+1,i+1])),m=mk('الشهر',MN.map((n,i)=>[i+1,n])),y=mk('السنة',Array.from({length:Y+31-1900},(_,i)=>[Y+30-i,Y+30-i]));
+  w.append(d,m,y);
+  const fix=()=>{if(m.value&&y.value&&d.value){const n=new Date(+y.value,+m.value,0).getDate();if(+d.value>n)d.value=n;}};
+  m.addEventListener('change',fix);y.addEventListener('change',fix);
+  Object.defineProperty(w,'value',{get:()=>(d.value&&m.value&&y.value)?`${y.value}-${String(m.value).padStart(2,'0')}-${String(d.value).padStart(2,'0')}`:'',set:x=>{const p=(x||'').split('-');y.value=p[0]||'';m.value=p[1]?+p[1]:'';d.value=p[2]?+p[2]:'';}});
+  return w;
+}
+
+function openTool(t){
+  view.innerHTML='';
+  const back=el('button','back','→ كل الأدوات');back.onclick=()=>{location.hash='';};
+  const p=el('div','panel');p.append(el('h3','',t.name),el('p','',t.desc));
+  view.append(back,p);
+  if(t.render){t.render(p);return;}
+  const f={};
+  t.inputs.forEach(i=>{
+    p.append(el('label','',i.label));
+    let e;
+    if(i.type==='textarea')e=el('textarea');
+    else if(i.type==='select'){e=el('select');i.options.forEach(([v,n])=>{const o=el('option','',n);o.value=v;e.append(o);});}
+    else if(i.type==='date')e=dateField();else{e=el('input');e.type=i.type;}
+    if(i.value!=null)e.value=i.value;
+    f[i.id]=e;p.append(e);
+  });
+  const out=el('div','out');const cp=el('button','copy','نسخ النتيجة');
+  const run=()=>{
+    const v={};for(const k in f)v[k]=f[k].value;
+    try{Promise.resolve(t.run(v)).then(r=>{out.textContent=r;out.className='out';},e=>{out.textContent='خطأ: '+e.message;out.className='out err';});}
+    catch(e){out.textContent='خطأ: '+e.message;out.className='out err';}
+  };
+  if(t.action){const b=el('button','go',t.action);b.onclick=run;p.append(b);}
+  else for(const k in f){f[k].addEventListener('input',run);f[k].addEventListener('change',run);}
+  p.append(out,cp);
+  cp.onclick=async()=>{try{await navigator.clipboard.writeText(out.textContent);cp.textContent='تم النسخ ✓';}
+    catch(e){cp.textContent='تعذّر النسخ';}setTimeout(()=>cp.textContent='نسخ النتيجة',1500);};
+  if(t.action)run();
+}
+
+function route(){
+  const id=location.hash.slice(1);
+  const t=SECTIONS.flatMap(s=>s.tools).find(x=>x.id===id);
+  t?openTool(t):home();window.scrollTo(0,0);
+}
+addEventListener('hashchange',route);route();
+</script>
+</body>
+</html>
